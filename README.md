@@ -5,7 +5,6 @@
   <img src="https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter">
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi" alt="FastAPI">
-  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
 </p>
 
 ---
@@ -19,29 +18,40 @@
 
 <p align="center">
   <img src="assets/screenshots/1.png" width="250" style="margin: 10px;" alt="Main Screen">
+</p>
+<p align="center">
   <img src="assets/screenshots/2.png" width="250" style="margin: 10px;" alt="College">
   <img src="assets/screenshots/3.png" width="250" style="margin: 10px;" alt="College">
   <img src="assets/screenshots/4.png" width="250" style="margin: 10px;" alt="College">
   <img src="assets/screenshots/5.png" width="250" style="margin: 10px;" alt="College">
   <img src="assets/screenshots/6.png" width="250" style="margin: 10px;" alt="College">
   <img src="assets/screenshots/7.png" width="250" style="margin: 10px;" alt="College">
+</p>
+<p align="center">
   <img src="assets/screenshots/8.png" width="250" style="margin: 10px;" alt="Hospital">
   <img src="assets/screenshots/9.png" width="250" style="margin: 10px;" alt="Hospital">
   <img src="assets/screenshots/10.png" width="250" style="margin: 10px;" alt="Hospital">
+</p>
+<p align="center">
   <img src="assets/screenshots/11.png" width="250" style="margin: 10px;" alt="School">
   <img src="assets/screenshots/12.png" width="250" style="margin: 10px;" alt="School">
   <img src="assets/screenshots/13.png" width="250" style="margin: 10px;" alt="School">
   <img src="assets/screenshots/14.png" width="250" style="margin: 10px;" alt="School">
+</p>
+<p align="center">
   <img src="assets/screenshots/15.png" width="250" style="margin: 10px;" alt="Event">
   <img src="assets/screenshots/16.png" width="250" style="margin: 10px;" alt="Event">
-</p>
+  </p>
 
 <p align="center">
   <i>"A seamless and interactive interface to manage courses, instructors, and locations."</i>
 </p>
 
 ---
+## 📊 Project Presentation
+**[👉 Click here to view our Presentation Slides](https://canva.link/iqzk37rkrl10ow3)**
 
+--- 
 ## ✨ Key Features
 * 🧠 **AI Core:** Utilizes Google OR-Tools to ensure 100% conflict-free schedules.
 * 📱 **Cross-Platform:** High-performance UI built with Flutter (Supports Desktop & Mobile).
