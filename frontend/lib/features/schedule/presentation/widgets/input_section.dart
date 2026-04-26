@@ -43,14 +43,16 @@ class InputSection extends StatelessWidget {
               
               GenerateScheduleButton(cubit: cubit),
 
-              // 👈 الزرار الجديد بتاع الداتا الوهمية (Mock Data)
               SizedBox(height: 1.h),
               TextButton.icon(
                 onPressed: () {
+                  // sync cubit.currentMode from ModeCubit before filling
+                  final modeFromUI = context.read<ModeCubit>().state.selectedMode;
+                  cubit.currentMode = modeFromUI;
                   cubit.fillMockData();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text("✨ Mock Data Filled Successfully!"), 
+                      content: Text("✨ Mock Data Filled Successfully!"),
                       backgroundColor: Colors.blueAccent,
                       duration: Duration(seconds: 2),
                     ),

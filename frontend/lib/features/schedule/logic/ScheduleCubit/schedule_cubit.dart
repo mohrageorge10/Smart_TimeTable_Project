@@ -1,13 +1,15 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend/core/database/schedule_local_service.dart';
 import 'package:frontend/core/network/schedule_api_service.dart';
+import 'package:frontend/core/utils/mock_data_service.dart';
 import 'package:frontend/features/schedule/data/repos/mode_repo.dart';
-import 'package:frontend/features/schedule/data/repos/schedule_repository.dart'; 
+import 'package:frontend/features/schedule/data/repos/schedule_repository.dart';
+
 import 'schedule_state.dart';
 
 class ScheduleCubit extends Cubit<ScheduleState> {
   final ScheduleRepository repository;
-  
+
   final ScheduleApiService _apiService = ScheduleApiService();
   final ScheduleLocalService _localService = ScheduleLocalService();
 
@@ -20,6 +22,8 @@ class ScheduleCubit extends Cubit<ScheduleState> {
   String? selectedSpecialty;
   String? selectedYear;
   String? targetAudience;
+  String? selectedSection;
+  List<String> itemAvailableDays = [];
 
   int numberOfSlots = 0;
   int slotDuration = 0;
@@ -35,7 +39,7 @@ class ScheduleCubit extends Cubit<ScheduleState> {
   List<Map<String, String>> calculatedSlots = [];
 
   ScheduleCubit(this.repository) : super(ScheduleInitial()) {
-    loadSavedSchedule(); 
+    loadSavedSchedule();
   }
 
   void refreshUI() {
@@ -88,28 +92,26 @@ class ScheduleCubit extends Cubit<ScheduleState> {
   }
 
   void fillMockData() {
-    startTime = "08:00 AM";
-    numberOfSlots = 5; 
-    slotDuration = 90; 
-    breakDuration = 10;
-    addedLocations = [
-      {"name": "مدرج 1", "capacity": 500, "type": "Lecture Hall"},
-      {"name": "مدرج 2", "capacity": 500, "type": "Lecture Hall"},
-      {"name": "مدرج 3", "capacity": 500, "type": "Lecture Hall"},
-      {"name": "معمل حاسبات 1", "capacity": 50, "type": "Computer Lab"}, // معمل احتياطي لو فيه سكاشن
-    ];
+    addedLocations.clear();
+    addedItems.clear();
+    calculatedSlots.clear();
 
-    final config = ModeRepository.modes[currentMode] ?? ModeRepository.modes['College']!;
-    
-    addedItems = {
-      "نظم التشغيل": {config.nameLabel: "نظم التشغيل", config.personLabel: "د/ حندوسة - د/ العروسي", "Capacity": "300", "Type": "Lecture"},
-      "الذكاء الاصطناعي": {config.nameLabel: "الذكاء الاصطناعي", config.personLabel: "د/ سارة المتولي", "Capacity": "300", "Type": "Lecture"},
-      "تصميم لغات الحاسب": {config.nameLabel: "تصميم لغات الحاسب", config.personLabel: "د/ رشا صقر - د/ داليا", "Capacity": "300", "Type": "Lecture"},
-      "معالجة الإشارات": {config.nameLabel: "معالجة الإشارات الرقمية", config.personLabel: "د/ فاطمة الزهراء", "Capacity": "300", "Type": "Lecture"},
-      "هندسة برمجيات": {config.nameLabel: "هندسة برمجيات", config.personLabel: "د/ أمل - د/ حمدي", "Capacity": "300", "Type": "Lecture"},
-    };
+    final mockData = MockDataService.getMockDataForMode(currentMode);
 
-    calculateSlots(); 
+    startTime = mockData["startTime"] as String;
+    numberOfSlots = mockData["numberOfSlots"] as int;
+    slotDuration = mockData["slotDuration"] as int;
+    breakDuration = mockData["breakDuration"] as int;
+
+    addedLocations = (mockData["locations"] as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+
+    addedItems = (mockData["items"] as Map).map(
+      (k, v) => MapEntry(k as String, Map<String, dynamic>.from(v as Map)),
+    );
+
+    calculateSlots();
   }
 
   void addItemToList() {
@@ -126,6 +128,9 @@ class ScheduleCubit extends Cubit<ScheduleState> {
       if (selectedType != null) "Type": selectedType,
       if (config.hasAcademicYear && academicOrAudienceValue != null)
         config.academicYearLabel!: academicOrAudienceValue,
+      if (config.hasDynamicSection && selectedSection != null)
+        config.sectionLabel!: selectedSection,
+      "available_days": List<String>.from(itemAvailableDays),
     };
 
     refreshUI();
@@ -144,22 +149,53 @@ class ScheduleCubit extends Cubit<ScheduleState> {
     refreshUI();
   }
 
+  List<String> selectedDays = [];
+
   void generateSchedule() async {
     emit(ScheduleLoading());
 
     try {
-      List<String> days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+      List<String> days = selectedDays.isNotEmpty
+          ? selectedDays
+          : [
+              'Saturday',
+              'Sunday',
+              'Monday',
+              'Tuesday',
+              'Wednesday',
+              'Thursday',
+            ];
+
       List<String> timeslots = calculatedSlots.map((s) => s["Slot"]!).toList();
 
       List<Map<String, dynamic>> itemsList = [];
       addedItems.forEach((name, details) {
         final config = ModeRepository.modes[currentMode]!;
+
+        final int students =
+            int.tryParse(details["Capacity"]?.toString() ?? '0') ?? 0;
+        final String batch =
+            details[config.academicYearLabel ?? "Academic Year"]?.toString() ??
+            "general";
+        final String? section = config.hasDynamicSection
+            ? details[config.sectionLabel]?.toString()
+            : null;
+
+        List<String> safeAvailableDays = [];
+        if (details["available_days"] != null) {
+          safeAvailableDays = (details["available_days"] as List)
+              .map((e) => e.toString())
+              .toList();
+        }
+
         itemsList.add({
           "name": name,
           "person": details[config.personLabel] ?? "Unknown",
-          "students": int.tryParse(details["Capacity"]?.toString() ?? '0') ?? 0,
-          "available_days": [], 
+          "students": students,
+          "available_days": safeAvailableDays,
           "type": details["Type"]?.toString() ?? "Lecture",
+          "batch": batch,
+          "section": ?section,
         });
       });
 
@@ -170,6 +206,11 @@ class ScheduleCubit extends Cubit<ScheduleState> {
           "type": loc["type"] ?? "Room",
         };
       }
+      // Hospital has no physical locations — inject a virtual unlimited room
+      // so the solver can assign shifts without room constraints
+      if (roomsInfo.isEmpty) {
+        roomsInfo["Virtual Room"] = {"capacity": 99999, "type": "any"};
+      }
 
       Map<String, dynamic> requestData = {
         "items": itemsList,
@@ -177,13 +218,13 @@ class ScheduleCubit extends Cubit<ScheduleState> {
         "timeslots": timeslots,
         "rooms_info": roomsInfo,
       };
-
+      print("====== REQUEST DATA ======");
+      print(requestData);
       final finalSchedule = await _apiService.fetchSchedule(requestData);
 
       await _localService.saveSchedule(finalSchedule);
 
       emit(ScheduleLoaded(finalSchedule));
-
     } catch (e) {
       emit(ScheduleError(e.toString().replaceAll("Exception: ", "")));
     }
@@ -191,7 +232,7 @@ class ScheduleCubit extends Cubit<ScheduleState> {
 
   void loadSavedSchedule() {
     var savedSchedule = _localService.loadSchedule();
-    
+
     if (savedSchedule != null) {
       emit(ScheduleLoaded(List<dynamic>.from(savedSchedule)));
     }

@@ -53,6 +53,7 @@ class _LocationsSetupScreenState extends State<LocationsSetupScreen> {
     SizeConfig().init(context);
     final cubit = context.read<ScheduleCubit>();
     final currentMode = context.read<ModeCubit>().state.selectedMode;
+    cubit.currentMode = currentMode; // keep in sync
     final config = ModeRepository.modes[currentMode]!;
 
     return BlocBuilder<ScheduleCubit, ScheduleState>(

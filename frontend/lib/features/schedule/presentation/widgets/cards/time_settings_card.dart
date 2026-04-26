@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:frontend/core/constants/app_strings.dart';
 import 'package:frontend/core/utils/size_config.dart';
 import 'package:frontend/features/schedule/logic/ScheduleCubit/schedule_cubit.dart';
 import 'package:frontend/features/schedule/presentation/widgets/buttons/custom_action_button.dart';
+import 'package:frontend/features/schedule/presentation/widgets/cards/section_card.dart';
 import 'package:frontend/features/schedule/presentation/widgets/custom_text_field.dart';
 
 class TimeSettingsCard extends StatefulWidget {
@@ -21,13 +23,11 @@ class _TimeSettingsCardState extends State<TimeSettingsCard> {
     super.dispose();
   }
 
-  // الدالة المعدلة لضمان ظهور AM/PM دائماً
   Future<void> _selectTime(BuildContext context, ScheduleCubit cubit) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
       builder: (BuildContext context, Widget? child) {
-        // إجبار الـ Picker على نظام الـ 12 ساعة
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
           child: child!,
@@ -36,11 +36,9 @@ class _TimeSettingsCardState extends State<TimeSettingsCard> {
     );
 
     if (picked != null && context.mounted) {
-      // حساب الوقت يدوياً لضمان الصيغة المطلوبة
       final hour = picked.hour == 0 ? 12 : (picked.hour > 12 ? picked.hour - 12 : picked.hour);
       final minute = picked.minute.toString().padLeft(2, '0');
       final amPm = picked.hour >= 12 ? 'PM' : 'AM';
-      
       final formattedTime = "$hour:$minute $amPm"; 
 
       setState(() {
@@ -53,9 +51,34 @@ class _TimeSettingsCardState extends State<TimeSettingsCard> {
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<ScheduleCubit>();
-    
-    return Column(
+
+    return SectionCard(
+      title: AppStrings.timeSettings,
+      icon: Icons.access_time,
       children: [
+        Row(
+          children: [
+            Expanded(
+              child: CustomTextField(
+                labelText: "Slots Count",
+                prefixIcon: Icons.format_list_numbered,
+                keyboardType: TextInputType.number,
+                onChanged: (value) => cubit.numberOfSlots = int.tryParse(value) ?? 0,
+              ),
+            ),
+            SizedBox(width: 2.w),
+            Expanded(
+              child: CustomTextField(
+                labelText: "Duration (min)",
+                prefixIcon: Icons.timer,
+                keyboardType: TextInputType.number,
+                onChanged: (value) => cubit.slotDuration = int.tryParse(value) ?? 0,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 1.5.h),
+        
         Row(
           children: [
             Expanded(
@@ -76,15 +99,14 @@ class _TimeSettingsCardState extends State<TimeSettingsCard> {
                 labelText: "Break (min)",
                 prefixIcon: Icons.pause_circle_outline,
                 keyboardType: TextInputType.number,
-                onChanged: (value) =>
-                    cubit.breakDuration = int.tryParse(value) ?? 0,
+                onChanged: (value) => cubit.breakDuration = int.tryParse(value) ?? 0,
               ),
             ),
           ],
         ),
         SizedBox(height: 1.5.h),
         
-       CustomActionButton(
+        CustomActionButton(
           icon: Icons.calculate,
           label: "Calculate Slots",
           onPressed: () {
@@ -96,7 +118,7 @@ class _TimeSettingsCardState extends State<TimeSettingsCard> {
             }
             cubit.calculateSlots();
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Slots calculated! Check the Preview below."), backgroundColor: Colors.green),
+              const SnackBar(content: Text("Slots calculated!"), backgroundColor: Colors.green),
             );
           },
         ),

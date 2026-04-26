@@ -3,8 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend/features/schedule/logic/ScheduleCubit/schedule_cubit.dart';
 import 'package:frontend/features/schedule/logic/modeCubit/mode_cubit.dart';
 import 'package:frontend/features/schedule/data/repos/mode_repo.dart';
-
-// استدعاء الويدجت الجديدة (تأكدي من المسار الصحيح لديك)
 import 'package:frontend/features/schedule/presentation/widgets/cards/details_section_card.dart';
 
 class DetailsScreen extends StatefulWidget {
@@ -52,7 +50,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
           IconButton(
             icon: const Icon(Icons.edit),
             tooltip: "Edit Item",
-            onPressed: () => _showEditItemDialog(context, currentDetails),
+            onPressed: () => _showSmartEditDialog(context, currentDetails),
           ),
         ],
       ),
@@ -68,63 +66,171 @@ class _DetailsScreenState extends State<DetailsScreen> {
     );
   }
 
-  void _showEditItemDialog(BuildContext context, Map<String, dynamic> details) {
-    Map<String, TextEditingController> controllers = {};
-    for (var entry in details.entries) {
-      controllers[entry.key] = TextEditingController(text: entry.value.toString());
+  void _showSmartEditDialog(BuildContext context, Map<String, dynamic> details) {
+    final currentMode = context.read<ModeCubit>().state.selectedMode;
+    final config = ModeRepository.modes[currentMode]!;
+
+    Map<String, dynamic> localData = Map<String, dynamic>.from(details);
+    
+    List<String> allDays = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+    List<String> selectedDays = (localData['available_days'] as List?)?.map((e) => e.toString()).toList() ?? [];
+
+    Map<String, TextEditingController> textControllers = {};
+    for (var key in localData.keys) {
+      if (key != 'available_days' && 
+          key != 'Type' && 
+          key != config.typeLabel && 
+          key != 'Specialty' && 
+          key != config.academicYearLabel && 
+          key != config.sectionLabel) {
+        textControllers[key] = TextEditingController(text: localData[key].toString());
+      }
     }
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text("Edit Item"),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: controllers.entries.map((e) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: TextField(
-                    controller: e.value,
-                    decoration: InputDecoration(labelText: e.key),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Map<String, dynamic> updatedDetails = {};
-                for (var key in controllers.keys) {
-                  updatedDetails[key] = controllers[key]!.text;
-                }
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Edit Item", style: TextStyle(fontWeight: FontWeight.bold)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...localData.keys.map((key) {
+                      if (key == 'available_days') return const SizedBox.shrink();
 
-                final currentMode = context.read<ModeCubit>().state.selectedMode;
-                final config = ModeRepository.modes[currentMode]!;
-                String newName = updatedDetails[config.nameLabel] ?? currentItemName;
+                      // 1. Dropdown for Type
+                      if (key == 'Type' || key == config.typeLabel) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: DropdownButtonFormField<String>(
+                            value: config.types.contains(localData[key]) ? localData[key] : null,
+                            decoration: InputDecoration(labelText: key, border: const OutlineInputBorder(), isDense: true),
+                            items: config.types.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                            onChanged: (val) => setStateDialog(() => localData[key] = val),
+                          ),
+                        );
+                      } 
+                      // 2. Dropdown for Specialty
+                      else if (key == 'Specialty' && config.specialties.isNotEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: DropdownButtonFormField<String>(
+                            value: config.specialties.contains(localData[key]) ? localData[key] : null,
+                            decoration: InputDecoration(labelText: key, border: const OutlineInputBorder(), isDense: true),
+                            items: config.specialties.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                            onChanged: (val) => setStateDialog(() => localData[key] = val),
+                          ),
+                        );
+                      } 
+                      // 3. Dropdown for Academic Year / Level
+                      else if (config.hasAcademicYear && key == config.academicYearLabel) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: DropdownButtonFormField<String>(
+                            value: config.academicYears?.contains(localData[key]) == true ? localData[key] : null,
+                            decoration: InputDecoration(labelText: key, border: const OutlineInputBorder(), isDense: true),
+                            items: config.academicYears?.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList() ?? [],
+                            onChanged: (val) {
+                              setStateDialog(() {
+                                localData[key] = val;
+                                // Reset section if level is changed
+                                if (config.hasDynamicSection && localData.containsKey(config.sectionLabel)) {
+                                  localData[config.sectionLabel ?? 'Section'] = null;
+                                }
+                              });
+                            },
+                          ),
+                        );
+                      } 
+                      // 4. Dropdown for Section / Class
+                      else if (config.hasDynamicSection && key == config.sectionLabel) {
+                        String? currentLevel = localData[config.academicYearLabel ?? 'Level'];
+                        List<String> sections = [];
+                        if (currentLevel != null && config.getSectionsForLevel != null) {
+                          sections = config.getSectionsForLevel!(currentLevel);
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: DropdownButtonFormField<String>(
+                            value: sections.contains(localData[key]) ? localData[key] : null,
+                            decoration: InputDecoration(labelText: key, border: const OutlineInputBorder(), isDense: true),
+                            items: sections.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                            onChanged: (val) => setStateDialog(() => localData[key] = val),
+                          ),
+                        );
+                      } 
+                      // 5. TextField for everything else (Name, Person, Capacity)
+                      else {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: TextField(
+                            controller: textControllers[key],
+                            decoration: InputDecoration(labelText: key, border: const OutlineInputBorder(), isDense: true),
+                          ),
+                        );
+                      }
+                    }),
 
-                widget.cubit.addedItems.remove(currentItemName);
-                widget.cubit.addedItems[newName] = updatedDetails;
-                widget.cubit.refreshUI();
+                    const SizedBox(height: 8),
+                    const Text("Available Days:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6.0,
+                      runSpacing: 6.0,
+                      children: allDays.map((day) {
+                        final isSelected = selectedDays.contains(day);
+                        return FilterChip(
+                          label: Text(day, style: const TextStyle(fontSize: 12)),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setStateDialog(() {
+                              if (selected) {
+                                selectedDays.add(day);
+                              } else {
+                                selectedDays.remove(day);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+                ElevatedButton(
+                  onPressed: () {
+                    // Update normal texts
+                    for (var key in textControllers.keys) {
+                      localData[key] = textControllers[key]!.text;
+                    }
+                    localData['available_days'] = selectedDays;
 
-                setState(() {
-                  currentItemName = newName;
-                });
+                    String newName = localData[config.nameLabel] ?? currentItemName;
 
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Item updated successfully!"), backgroundColor: Colors.green),
-                );
-              },
-              child: const Text("Save"),
-            ),
-          ],
+                    widget.cubit.addedItems.remove(currentItemName);
+                    widget.cubit.addedItems[newName] = localData;
+                    widget.cubit.refreshUI();
+
+                    setState(() {
+                      currentItemName = newName;
+                    });
+
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Item updated successfully!"), backgroundColor: Colors.green),
+                    );
+                  },
+                  child: const Text("Save"),
+                ),
+              ],
+            );
+          },
         );
       },
     );

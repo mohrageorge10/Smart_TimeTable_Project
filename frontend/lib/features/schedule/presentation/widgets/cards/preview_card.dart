@@ -1,201 +1,380 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:frontend/core/constants/app_strings.dart';
 import 'package:frontend/core/routing/app_routes.dart';
 import 'package:frontend/features/schedule/data/repos/mode_repo.dart';
 import 'package:frontend/features/schedule/logic/ScheduleCubit/schedule_cubit.dart';
 import 'package:frontend/features/schedule/logic/modeCubit/mode_cubit.dart';
 import 'package:frontend/features/schedule/presentation/widgets/cards/section_card.dart';
-import 'package:frontend/features/schedule/presentation/widgets/dynamic_edit_dialog.dart';
 
-class PreviewCard extends StatelessWidget {
+class PreviewCard extends StatefulWidget {
   const PreviewCard({super.key});
+
+  @override
+  State<PreviewCard> createState() => _PreviewCardState();
+}
+
+class _PreviewCardState extends State<PreviewCard> {
+  final ScrollController _slotsController = ScrollController();
+  final ScrollController _locationsController = ScrollController();
+
+  @override
+  void dispose() {
+    _slotsController.dispose();
+    _locationsController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final cubit = context.watch<ScheduleCubit>();
-
     final currentMode = context.read<ModeCubit>().state.selectedMode;
-    final String itemsLabel = AppStrings.getLabel(currentMode);
+    final config = ModeRepository.modes[currentMode]!;
+
+    if (cubit.addedLocations.isEmpty &&
+        cubit.addedItems.isEmpty &&
+        cubit.calculatedSlots.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return SectionCard(
       title: "Data Preview",
       icon: Icons.preview,
       children: [
-        // ================= 1. قسم الفترات =================
-        const Text(
-          "🕒 Calculated Slots:",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        const SizedBox(height: 10),
-
-        if (cubit.calculatedSlots.isEmpty)
+        // ── Time Slots Table ─────────────────────────────────
+        if (cubit.calculatedSlots.isNotEmpty) ...[
           const Text(
-            "Press 'Calculate Slots' in Time Settings to generate.",
-            style: TextStyle(color: Colors.grey),
+            "Calculated Slots:",
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
-
-        ...cubit.calculatedSlots.asMap().entries.map((entry) {
-          int index = entry.key;
-          var slot = entry.value;
-          return Card(
-            color: Colors.blue.shade50,
-            child: ListTile(
-              leading: const Icon(Icons.timer, color: Colors.blue),
-              title: Text(
-                slot["Slot"]!,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text("${slot["Start"]} - ${slot["End"]}"),
-              trailing: IconButton(
-                icon: const Icon(Icons.edit, color: Colors.blue),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => DynamicEditDialog(
-                      title: "Edit ${slot['Slot']}",
-                      data: {
-                        "Start Time": slot["Start"],
-                        "End Time": slot["End"],
-                      },
-                      onSave: (updatedData) {
-                        cubit.calculatedSlots[index]["Start"] =
-                            updatedData["Start Time"];
-                        cubit.calculatedSlots[index]["End"] =
-                            updatedData["End Time"];
-                        cubit.refreshUI();
-                        Navigator.pop(context);
-                      },
+          const SizedBox(height: 8),
+          Scrollbar(
+            controller: _slotsController,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _slotsController,
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(
+                  Colors.blue.withOpacity(0.08),
+                ),
+                border: TableBorder.all(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                columns: const [
+                  DataColumn(
+                    label: Text(
+                      'Slot',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                  );
-                },
-              ),
-            ),
-          );
-        }),
-        const Divider(height: 30),
-
-        // ================= 2. قسم الأماكن =================
-        const Text(
-          "📍 Added Locations:",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-
-        if (cubit.addedLocations.isEmpty)
-          const Text(
-            "No locations added yet.",
-            style: TextStyle(color: Colors.grey),
-          ),
-
-        ...cubit.addedLocations.asMap().entries.map((entry) {
-          int index = entry.key;
-          var loc = entry.value;
-          return Card(
-            color: Colors.green.shade50,
-            child: ListTile(
-              leading: const Icon(Icons.meeting_room, color: Colors.green),
-              title: Text(
-                loc["name"],
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text(
-                "Capacity: ${loc["capacity"]} | Type: ${loc["type"]}",
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.green),
-                    onPressed: () {
-                      final config = ModeRepository.modes[currentMode]!;
-
-                      Map<String, List<String>>? dropdowns;
-                      if (config.hasLocationType && config.locations != null) {
-                        dropdowns = {"Location Type": config.locations!};
-                      }
-
-                      showDialog(
-                        context: context,
-                        builder: (context) => DynamicEditDialog(
-                          title: "Edit Location",
-                          data: {
-                            "Location Name": loc["name"],
-                            "Capacity": loc["capacity"],
-                            if (dropdowns != null)
-                              "Location Type": loc["type"] ?? "",
-                          },
-                          dropdownConfigs: dropdowns,
-                          onSave: (updatedData) {
-                            cubit.addedLocations[index]["name"] =
-                                updatedData["Location Name"];
-                            cubit.addedLocations[index]["capacity"] =
-                                updatedData["Capacity"];
-                            if (dropdowns != null) {
-                              cubit.addedLocations[index]["type"] =
-                                  updatedData["Location Type"];
-                            }
-                            cubit.refreshUI();
-                            Navigator.pop(context);
-                          },
-                        ),
-                      );
-                    },
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () {
-                      cubit.addedLocations.removeAt(index);
-                      cubit.refreshUI();
-                    },
+                  DataColumn(
+                    label: Text(
+                      'Start',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Text(
+                      'End',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
-              ),
-            ),
-          );
-        }),
-        const Divider(height: 30),
-
-        // ================= 3. قسم المواد/الشيفتات =================
-        Text(
-          "📝 Added $itemsLabel:",
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-
-        if (cubit.addedItems.isEmpty)
-          Text(
-            "No ${itemsLabel.toLowerCase()} added yet.",
-            style: const TextStyle(color: Colors.grey),
-          ),
-
-        ...cubit.addedItems.entries.map(
-          (entry) => Card(
-            color: Colors.orange.shade50,
-            child: ListTile(
-              leading: const Icon(Icons.menu_book, color: Colors.orange),
-              title: Text(
-                entry.key,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              onTap: () => Navigator.pushNamed(
-                context,
-                AppRoutes.details,
-                arguments: {
-                  'itemName': entry.key,
-                  'details': entry.value,
-                  'cubit': cubit,
-                },
-              ),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () {
-                  cubit.addedItems.remove(entry.key);
-                  cubit.refreshUI();
-                },
+                rows: cubit.calculatedSlots.map((slot) {
+                  return DataRow(
+                    cells: [
+                      DataCell(Text(slot["Slot"] ?? '')),
+                      DataCell(Text(slot["Start"] ?? '')),
+                      DataCell(Text(slot["End"] ?? '')),
+                    ],
+                  );
+                }).toList(),
               ),
             ),
           ),
-        ),
+          const SizedBox(height: 16),
+        ],
+
+        // ── Locations Table ─────────────────────────────────
+        if (cubit.addedLocations.isNotEmpty) ...[
+          const Text(
+            "Locations:",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Scrollbar(
+            controller: _locationsController,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _locationsController,
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(
+                  Theme.of(context).primaryColor.withOpacity(0.08),
+                ),
+                border: TableBorder.all(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                columns: [
+                  const DataColumn(
+                    label: Text(
+                      '#',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const DataColumn(
+                    label: Text(
+                      'Name',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const DataColumn(
+                    label: Text(
+                      'Capacity',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  if (config.hasLocationType)
+                    const DataColumn(
+                      label: Text(
+                        'Type',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  const DataColumn(
+                    label: Text(
+                      'Actions',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+                rows: cubit.addedLocations.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final loc = entry.value;
+                  return DataRow(
+                    cells: [
+                      DataCell(Text('${i + 1}')),
+                      DataCell(Text(loc['name'] ?? '')),
+                      DataCell(
+                        Text(
+                          loc['capacity'] != null && loc['capacity'] != 0
+                              ? '${loc['capacity']} persons'
+                              : '—',
+                        ),
+                      ),
+                      if (config.hasLocationType)
+                        DataCell(
+                          Text(
+                            (loc['type'] != null &&
+                                    loc['type'].toString().isNotEmpty)
+                                ? loc['type']
+                                : '—',
+                          ),
+                        ),
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.edit,
+                                color: Colors.blue,
+                                size: 20,
+                              ),
+                              onPressed: () => _showEditLocationDialog(
+                                context,
+                                cubit,
+                                i,
+                                loc,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                cubit.addedLocations.removeAt(i);
+                                cubit.refreshUI();
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // ── Items List ───────────────────────────────────────
+        if (cubit.addedItems.isNotEmpty) ...[
+          const Text(
+            "Added Items:",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          ...cubit.addedItems.entries.map((entry) {
+            final details = entry.value;
+            final section = config.hasDynamicSection
+                ? details[config.sectionLabel]?.toString()
+                : null;
+            final batch = config.hasAcademicYear
+                ? details[config.academicYearLabel ?? 'Level']?.toString()
+                : null;
+            final rawDays = details['available_days'];
+            final daysStr = (rawDays is List && rawDays.isNotEmpty)
+                ? rawDays.join(', ')
+                : 'All Days';
+
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              child: ListTile(
+                title: Text(
+                  entry.key,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Wrap(
+                  spacing: 8,
+                  runSpacing: 2,
+                  children: [
+                    if (batch != null) _chip('📚 $batch', Colors.blue),
+                    if (section != null) _chip('👥 $section', Colors.purple),
+                    _chip('📅 $daysStr', Colors.teal),
+                  ],
+                ),
+                isThreeLine: true,
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.details,
+                  arguments: {
+                    'itemName': entry.key,
+                    'details': details,
+                    'cubit': cubit,
+                  },
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () {
+                    cubit.addedItems.remove(entry.key);
+                    cubit.refreshUI();
+                  },
+                ),
+              ),
+            );
+          }),
+        ],
       ],
+    );
+  }
+
+  Widget _chip(String label, Color color) => Chip(
+    label: Text(
+      label,
+      style: TextStyle(fontSize: 10, color: color.withOpacity(0.9)),
+    ),
+    backgroundColor: color.withOpacity(0.08),
+    side: BorderSide(color: color.withOpacity(0.3)),
+    padding: const EdgeInsets.symmetric(horizontal: 2),
+    visualDensity: VisualDensity.compact,
+  );
+
+  void _showEditLocationDialog(
+    BuildContext context,
+    ScheduleCubit cubit,
+    int index,
+    Map<String, dynamic> loc,
+  ) {
+    final currentMode = context.read<ModeCubit>().state.selectedMode;
+    final config = ModeRepository.modes[currentMode]!;
+
+    TextEditingController nameCtrl = TextEditingController(text: loc['name']);
+    TextEditingController capCtrl = TextEditingController(
+      text: loc['capacity'].toString(),
+    );
+
+    String? selectedType = loc['type']?.toString();
+    if (selectedType != null && selectedType.isEmpty) {
+      selectedType = null;
+    }
+
+    List<String> typeOptions = config.locations != null
+        ? List<String>.from(config.locations!)
+        : [];
+
+    if (selectedType != null && !typeOptions.contains(selectedType)) {
+      typeOptions.add(selectedType);
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Edit Location"),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: "Name"),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: capCtrl,
+                      decoration: const InputDecoration(labelText: "Capacity"),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 8),
+                    if (config.hasLocationType)
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedType,
+                        decoration: const InputDecoration(labelText: "Type"),
+                        items: typeOptions
+                            .map(
+                              (type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(type),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          setStateDialog(() => selectedType = val);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    cubit.addedLocations[index] = {
+                      "name": nameCtrl.text,
+                      "capacity": int.tryParse(capCtrl.text) ?? 0,
+                      "type": selectedType ?? '',
+                    };
+                    cubit.refreshUI();
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text("Save"),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

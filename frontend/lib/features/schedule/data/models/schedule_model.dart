@@ -5,7 +5,7 @@ class ScheduleModeConfig {
   final bool hasCapacity;
   final bool hasLocationSettings;
   final bool hasLocationType;
-  
+
   final List<String> types;
   final List<String> specialties;
   final bool hasAcademicYear;
@@ -14,6 +14,13 @@ class ScheduleModeConfig {
   final List<String>? academicYears;
   final String? typeLabel;
   final String? SpecialtyLabel;
+
+  final bool hasDynamicSection;
+  final String? sectionLabel;
+  final List<String> Function(String level)? getSectionsForLevel;
+
+  final bool hasAvailableDays;
+  final List<String> excludedDays;
 
   ScheduleModeConfig({
     required this.modeName,
@@ -30,5 +37,10 @@ class ScheduleModeConfig {
     this.academicYears,
     this.typeLabel,
     this.SpecialtyLabel,
+    this.hasDynamicSection = false,
+    this.sectionLabel,
+    this.getSectionsForLevel,
+    this.hasAvailableDays = false,
+    this.excludedDays = const [],
   });
 }

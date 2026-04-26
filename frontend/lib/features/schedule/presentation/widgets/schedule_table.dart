@@ -15,7 +15,6 @@ class ScheduleTable extends StatelessWidget {
     return BlocBuilder<ScheduleCubit, ScheduleState>(
       builder: (context, state) {
         
-        // 1. حالة البداية (الكارت الأبيض)
         if (state is ScheduleInitial) {
           return Container(
             margin: const EdgeInsets.all(16),
@@ -42,22 +41,43 @@ class ScheduleTable extends StatelessWidget {
           );
         } 
         
-        // 2. حالة التحميل
         else if (state is ScheduleLoading) {
           return const Center(child: CircularProgressIndicator());
         } 
         
-        // 3. حالة الخطأ
         else if (state is ScheduleError) {
           return Center(
-            child: Text(
-              state.message,
-              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                  const SizedBox(height: 12),
+                  // split numbered points onto separate lines
+                  ...() {
+                    final msg = state.message;
+                    final parts = msg.split(RegExp(r'(?=\(\d+\))'));
+                    return parts.map((part) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Text(
+                        part.trim(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                      ),
+                    )).toList();
+                  }(),
+                ],
+              ),
             ),
           );
         } 
         
-        // 4. حالة عرض الجدول (التعديل هنا)
         else if (state is ScheduleLoaded) {
           final schedule = state.schedule;
           final cubit = context.read<ScheduleCubit>();
@@ -68,15 +88,14 @@ class ScheduleTable extends StatelessWidget {
           }
 
           return InteractiveViewer(
-            constrained: false, // للسماح للجدول بفيض المساحة
-            boundaryMargin: const EdgeInsets.all(double.infinity), // سماحية حركة لا نهائية في كل الاتجاهات
-            minScale: 0.1, // تصغير كبير جداً 
-            maxScale: 4.0, // تكبير لحد 4 أضعاف
+            constrained: false,
+            boundaryMargin: const EdgeInsets.all(double.infinity),
+            minScale: 0.1,
+            maxScale: 4.0,
             child: SizedBox(
-              // تحديد العرض الكلي (110 لعمود الوقت + 960 للـ 6 أيام + 80 للهوامش)
               width: 1150, 
               child: Container(
-                margin: const EdgeInsets.all(40), // هامش خارجي عشان ميبقاش لازق في الحواف عند التحريك
+                margin: const EdgeInsets.all(40),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -118,11 +137,9 @@ class ScheduleTable extends StatelessWidget {
                               ),
                             ),
                             ...days.map((day) {
-                              // 👈 استخدام الدالة الجديدة اللي بترجع List بدل عنصر واحد
                               final items = _getCoursesForTimeAndDay(schedule, day, slot["Slot"]!);
                               
                               if (items.isNotEmpty) {
-                                // 👈 عرض كل المواد في نفس الخلية لو تصادف وجودهم في نفس الوقت (قاعات مختلفة)
                                 return Padding(
                                   padding: const EdgeInsets.all(2.0),
                                   child: Column(
@@ -165,7 +182,6 @@ class ScheduleTable extends StatelessWidget {
     return BuildScheduleCell(name: name, person: person, room: room);
   }
 
-  // 👈 الدالة اتعدلت عشان ترجع List<dynamic> بدل ما تجيب عنصر واحد وتقف
   List<dynamic> _getCoursesForTimeAndDay(List<dynamic> schedule, String day, String slotName) {
     return schedule.where((element) {
       if (element is Map) {

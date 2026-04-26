@@ -1,6 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 
-part 'schedule_item.g.dart'; // هذا الملف سيتم توليده أوتوماتيكياً
+part 'schedule_item.g.dart';
 
 @JsonSerializable()
 class ScheduleItem {

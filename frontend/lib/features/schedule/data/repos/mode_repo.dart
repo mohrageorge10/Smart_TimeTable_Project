@@ -4,6 +4,8 @@ import 'package:frontend/features/schedule/data/models/schedule_model.dart';
 
 class ModeRepository {
   static final Map<String, ScheduleModeConfig> modes = {
+
+    // ── College (University + School sub-levels) ────────────
     'College': ScheduleModeConfig(
       modeName: 'College',
       nameLabel: 'Course Name',
@@ -15,13 +17,20 @@ class ModeRepository {
       types: AppData.getTypes('College'),
       locations: AppData.collegeLocations,
       specialties: AppData.getSpecialties('College'),
-      academicYearLabel: AppStrings.academicYear,
-      academicYears: AppData.academicYears,
+      academicYearLabel: 'Level',
+      academicYears: AppData.universityLevels,
       typeLabel: AppStrings.collegeType,
+      hasDynamicSection: true,
+      sectionLabel: 'Section',
+      getSectionsForLevel: AppData.getCollegeSections,
+      hasAvailableDays: true,
+      excludedDays: AppData.collegExcludedDays,
     ),
+
+    // ── Hospital ─────────────────────────────────────────────
     'Hospital': ScheduleModeConfig(
       modeName: 'Hospital',
-      nameLabel: 'Clinic Name',
+      nameLabel: 'Clinic / Shift Name',
       personLabel: 'Doctor',
       hasCapacity: false,
       hasAcademicYear: false,
@@ -30,7 +39,12 @@ class ModeRepository {
       types: AppData.getTypes('Hospital'),
       specialties: AppData.getSpecialties('Hospital'),
       typeLabel: "Shift",
+      hasDynamicSection: false,
+      hasAvailableDays: true,
+      excludedDays: AppData.hospitalExcludedDays,
     ),
+
+    // ── School ───────────────────────────────────────────────
     'School': ScheduleModeConfig(
       modeName: 'School',
       nameLabel: 'Subject',
@@ -40,10 +54,17 @@ class ModeRepository {
       hasLocationType: false,
       hasLocationSettings: true,
       types: AppData.getTypes('School'),
-      specialties: AppData.getSpecialties('School'),
-      academicYearLabel: AppStrings.academicYear,
-      academicYears: AppData.academicYears,
+      specialties: [],
+      academicYearLabel: 'Level',
+      academicYears: AppData.schoolLevels,
+      hasDynamicSection: true,
+      sectionLabel: 'Class',
+      getSectionsForLevel: AppData.getSchoolClasses,
+      hasAvailableDays: true,
+      excludedDays: AppData.schoolExcludedDays,
     ),
+
+    // ── Event ────────────────────────────────────────────────
     'Event': ScheduleModeConfig(
       modeName: 'Event',
       nameLabel: 'Session Name',
@@ -57,6 +78,8 @@ class ModeRepository {
       specialties: AppData.getSpecialties('Event'),
       academicYearLabel: AppStrings.targetAudience,
       academicYears: AppData.audiences,
+      hasAvailableDays: false,
+      excludedDays: AppData.eventExcludedDays,
     ),
   };
 }
